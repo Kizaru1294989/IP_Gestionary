@@ -12,17 +12,27 @@ typedef struct {
     char *id;
     char *ipAddress;
     char *masque;
+    char *ip_binary;
+    char *ip_hexa;
 } DatabaseEntry;
 
 
 
 char* convertToJSON(DatabaseEntry entry) {
-    char *jsonTemplate = "{\"ID\":\"%s\",\"IP Address\":\"%s\",\"Masque\":\"%s\"}";
-    char *jsonString = malloc(snprintf(NULL, 0, jsonTemplate, entry.id, entry.ipAddress, entry.masque) + 1);
-    sprintf(jsonString, jsonTemplate, entry.id, entry.ipAddress, entry.masque);
+    // Modifiez le modèle JSON pour inclure les nouvelles variables
+    char *jsonTemplate = "{\"ID\":\"%s\",\"IP Address\":\"%s\",\"Masque\":\"%s\",\"Binary IP\":\"%s\",\"Hexadecimal IP\":\"%s\"}";
+
+    // Calculez la taille nécessaire pour la chaîne JSON
+    int jsonSize = snprintf(NULL, 0, jsonTemplate, entry.id, entry.ipAddress, entry.masque, entry.ip_binary, entry.ip_hexa) + 1;
+
+    // Allouez de la mémoire pour la chaîne JSON
+    char *jsonString = malloc(jsonSize);
+
+    // Formatage de la chaîne JSON
+    sprintf(jsonString, jsonTemplate, entry.id, entry.ipAddress, entry.masque, entry.ip_binary, entry.ip_hexa);
+
     return jsonString;
 }
-
 char* SelectAllFromTable(PGconn *conn) {
     PGresult *res;
 
@@ -42,6 +52,8 @@ char* SelectAllFromTable(PGconn *conn) {
             entry.id = PQgetvalue(res, i, 0);
             entry.ipAddress = PQgetvalue(res, i, 1);
             entry.masque = PQgetvalue(res, i, 2);
+            entry.ip_hexa = PQgetvalue(res, i, 3);
+            entry.ip_binary = PQgetvalue(res, i, 4);
 
             char *jsonString = convertToJSON(entry);
 
@@ -71,6 +83,111 @@ char* SelectAllFromTable(PGconn *conn) {
         return "[]";
     }
 }
+
+void Delete(PGconn *conn , char* mask) {
+    PGresult *res;
+
+
+    res = PQexec(conn, "SELECT * FROM ip_address");
+
+    // Vérifie si la requête s'est exécutée avec succès
+    if (PQresultStatus(res) == PGRES_TUPLES_OK) {
+        int numRows = PQntuples(res);
+
+        // Alloue de la mémoire pour jsonArray et initialise avec un crochet ouvrant
+        char *jsonArray = malloc(2);
+        strcpy(jsonArray, "[");
+
+        for (int i = 0; i < numRows; i++) {
+            DatabaseEntry entry;
+            entry.id = PQgetvalue(res, i, 0);
+            entry.ipAddress = PQgetvalue(res, i, 1);
+            entry.masque = PQgetvalue(res, i, 2);
+            entry.ip_hexa = PQgetvalue(res, i, 3);
+            entry.ip_binary = PQgetvalue(res, i, 4);
+
+            char *jsonString = convertToJSON(entry);
+
+            // Réalloue de la mémoire pour augmenter la taille de jsonArray et ajoute jsonString
+            jsonArray = realloc(jsonArray, strlen(jsonArray) + strlen(jsonString) + 2);
+            strcat(jsonArray, jsonString);
+            if (i < numRows - 1) {
+                strcat(jsonArray, ",");
+            }
+            free(jsonString);
+        }
+
+        // Ajoute le crochet fermant à la fin et libère le résultat de la requête
+        strcat(jsonArray, "]");
+        PQclear(res);
+
+
+    } else {
+        // La requête a échoué
+        printf("Erreur lors de l'exécution de la requête : %s", PQerrorMessage(conn));
+
+        // Libère le résultat de la requête
+        PQclear(res);
+
+        // Retourne une chaîne JSON vide
+
+    }
+}
+
+char* Filter(PGconn *conn, char* mask) {
+    PGresult *filter;
+
+    // Construct the SQL query with the provided mask value
+    char query[11000]; // Adjust the size as needed
+    snprintf(query, sizeof(query), "SELECT * FROM ip_address WHERE mask = '%s'", mask);
+
+    // Execute the query
+    filter = PQexec(conn, query);
+
+    if (PQresultStatus(filter) == PGRES_TUPLES_OK) {
+        int numRows = PQntuples(filter);
+
+        // Allocate memory for jsonArray and initialize with an opening bracket
+        char *jsonArray = malloc(200);
+        strcpy(jsonArray, "[");
+
+        for (int i = 0; i < numRows; i++) {
+            DatabaseEntry entry;
+            entry.id = PQgetvalue(filter, i, 0);
+            entry.ipAddress = PQgetvalue(filter, i, 1);
+            entry.masque = PQgetvalue(filter, i, 2);
+            entry.ip_hexa = PQgetvalue(filter, i, 3);
+            entry.ip_binary = PQgetvalue(filter, i, 4);
+
+            char *jsonString = convertToJSON(entry);
+
+            // Reallocate memory to increase the size of jsonArray and add jsonString
+            jsonArray = realloc(jsonArray, strlen(jsonArray) + strlen(jsonString) + 2);
+            strcat(jsonArray, jsonString);
+            if (i < numRows - 1) {
+                strcat(jsonArray, ",");
+            }
+            free(jsonString);
+        }
+
+        // Add the closing bracket at the end and free the query result
+        strcat(jsonArray, "]");
+        PQclear(filter);
+
+        // Return the JSON array
+        return jsonArray;
+    } else {
+        // The query failed
+        printf("Erreur lors de l'exécution de la requête : %s", PQerrorMessage(conn));
+
+        // Free the query result
+        PQclear(filter);
+
+        // Return an empty JSON array
+        return "[]";
+    }
+}
+
 PGconn* connectToDatabase() {
     const char *host = "localhost";
     const char *db_name = "ip_manager";
@@ -128,6 +245,61 @@ bool validate_ip(char *ip) { //check whether the IP is valid or not
 }
 
 
+int is_valid_ip(char *ip) {
+    // Vérifie si l'IP est valide (omis pour simplifier l'exemple)
+    return 1; // Retourne 1 si l'IP est valide, sinon 0
+}
+
+char* convert_to_hexadecimal(char *ip) {
+    if (is_valid_ip(ip)) {
+        unsigned int octet1, octet2, octet3, octet4;
+        char *hex_ip = (char*)malloc(18); // Assez d'espace pour stocker l'adresse IP en hexadécimal (4 octets x 2 chiffres hexadécimaux + 3 séparateurs de points + caractère de fin de chaîne)
+        sscanf(ip, "%u.%u.%u.%u", &octet1, &octet2, &octet3, &octet4);
+        snprintf(hex_ip, 18, "%02X.%02X.%02X.%02X", octet1, octet2, octet3, octet4);
+        return hex_ip;
+    } else {
+        return NULL; // Retourne NULL si l'IP n'est pas valide
+    }
+}
+
+char* convert_to_binary(const char *ip) {
+    char *binary_ip = malloc(35); // 4 octets * 8 bits + 3 points + 1 caractère nul
+    if (binary_ip == NULL) {
+        fprintf(stderr, "Erreur d'allocation mémoire\n");
+        exit(EXIT_FAILURE);
+    }
+
+    int index = 0;
+    int octet = 0;
+    int isFirstOctet = 1; // Variable pour vérifier le premier octet
+    for (int i = 0; i <= strlen(ip); i++) {
+        if (ip[i] == '.' || ip[i] == '\0') {
+            // Convertit l'octet en binaire et ajoute au résultat
+            for (int j = 7; j >= 0; j--) {
+                binary_ip[index++] = (octet & (1 << j)) ? '1' : '0';
+            }
+            if (isFirstOctet && index < 8) {
+                // Remplit de zéros pour le premier octet
+                for (int k = 0; k < 8 - index; k++) {
+                    binary_ip[index++] = '0';
+                }
+            }
+            if (index < 31) {
+                binary_ip[index++] = '.'; // Ajoute un point entre les octets
+            }
+            isFirstOctet = 0; // Désactive la vérification du premier octet
+            octet = 0; // Réinitialise l'octet pour le prochain groupe de chiffres
+        } else {
+            // Met à jour l'octet en cours de conversion
+            octet = octet * 10 + (ip[i] - '0');
+        }
+    }
+    binary_ip[index] = '\0'; // Ajoute le caractère nul à la fin de la chaîne
+
+    return binary_ip;
+}
+
+
 
 char* processClientData(int client_socket, PGconn *conn) {
     char buffer[8024];
@@ -138,9 +310,13 @@ char* processClientData(int client_socket, PGconn *conn) {
             break;
         } else {
         buffer[bytes_received] = '\0';
+        printf("Donnée Recue du Client: %s\n", buffer);
         char *token;
-        char mask[50];
+        int id;
+        char mask[20];
         char ip[16];
+        char binaire[50];
+        char hexadecimal[30];
         token = strtok(buffer, ": ");
     if (token != NULL) {
         token = strtok(NULL, ","); // Utilisez "," comme délimiteur pour séparer l'adresse IP du reste de la chaîne
@@ -148,17 +324,29 @@ char* processClientData(int client_socket, PGconn *conn) {
             strncpy(ip, token + 1, sizeof(ip)); // +1 pour ignorer l'espace après le délimiteur
         }
 
-        // Chercher le jeton contenant le masque
         token = strtok(NULL, "Masque: ");
          if (token != NULL) {
              strncpy(mask, token, sizeof(mask));
      }
-  // Libérez la mémoire de l'ancienne data
-        
+
+     token = strtok(NULL, ", ID:");
+          if (token != NULL) {
+             id = strtol(token, NULL, 10);
+     }
+        printf("id: %d\n", id);
         printf("Adresse IP: %s\n", ip);
         printf("Masque: %s\n", mask);
-        char insert_query[100];
-        snprintf(insert_query, sizeof(insert_query), "INSERT INTO ip_address (ip,mask) VALUES ('%s','%s')", ip, mask);
+
+    switch (id) {
+        case 1:
+            printf("Insertion\n");
+                    char *hexadecimal = convert_to_hexadecimal(ip);
+        char *binaire = convert_to_binary(ip);
+        char insert_query[200];
+        printf("IP en hexadécimal : %s\n", hexadecimal);
+        printf("IP en binaire : %s\n", binaire);
+
+        snprintf(insert_query, sizeof(insert_query), "INSERT INTO ip_address (decimal,mask,hexadecimal,binaire) VALUES ('%s','%s','%s','%s')", ip, mask, hexadecimal,binaire);
         printf("Tentative d'insertion : %s\n", insert_query);
 
         PGresult *insert = PQexec(conn, insert_query);
@@ -177,6 +365,31 @@ char* processClientData(int client_socket, PGconn *conn) {
         
 
         PQclear(insert);
+
+            break;
+        case 2:
+            printf("Filtrage\n");
+            char *FilterResult = Filter(conn, mask);
+           if (FilterResult != NULL) {
+            printf("Result Filter : %s\n", FilterResult);
+            return FilterResult;
+            free(FilterResult);
+        }
+            else {
+                printf("Error occurred while filtering data.\n");
+
+            }
+            break;
+        case 3:
+            printf("Delete\n");
+            return "[]";
+            break;
+        default:
+            printf("ID non reconnu\n");
+            return "[]";
+            break;
+    }
+
     } else {
         printf("Format de données invalide : %s\n", buffer);
         return "[]";
@@ -200,25 +413,18 @@ void handleClientConnections(int server_socket, PGconn *conn, char *initialData)
             exit(EXIT_FAILURE);
         }
         printf("Client connecté\n");
-
-        // Envoyer les données initiales au client lors de la première connexion
         send(client_socket, data, strlen(data), 0);
-
         char *Update;
         Update = processClientData(client_socket, conn);
         if (Update != NULL && strlen(Update) > 0) {
             
-            data = Update; // Mettre à jour data avec les nouvelles données
-            printf("data: %s\n", data);
+            data = Update; 
+            printf("data Update: %s\n", data);
         } else {
             printf("Retrying send...\n");
         }
-
-        // Envoyer les nouvelles données au client
         send(client_socket, data, strlen(data), 0);
 
-        // Libérer la mémoire allouée pour Update si nécessaire
-        // free(Update);
     }
 }
 
@@ -260,7 +466,7 @@ int main() {
     server_socket = createServerSocket(12345);
     printf("Serveur en attente de connexions...\n");
     char *jsonString = SelectAllFromTable(conn);
-    printf("PGSQL TABLE: %s\n", jsonString);
+    // printf("PGSQL TABLE: %s\n", jsonString);
     handleClientConnections(server_socket, conn,jsonString);
     // PQfinish(conn);
     // close(server_socket);
