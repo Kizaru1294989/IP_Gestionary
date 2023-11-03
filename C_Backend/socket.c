@@ -84,55 +84,23 @@ char* SelectAllFromTable(PGconn *conn) {
     }
 }
 
-void Delete(PGconn *conn , char* mask) {
+void Delete(PGconn *conn, char* id) {
+
+    char query[100];
+    snprintf(query, sizeof(query), "DELETE FROM ip_address WHERE id = '%s'", id);
+    
     PGresult *res;
-
-
-    res = PQexec(conn, "SELECT * FROM ip_address");
-
-    // Vérifie si la requête s'est exécutée avec succès
-    if (PQresultStatus(res) == PGRES_TUPLES_OK) {
-        int numRows = PQntuples(res);
-
-        // Alloue de la mémoire pour jsonArray et initialise avec un crochet ouvrant
-        char *jsonArray = malloc(2);
-        strcpy(jsonArray, "[");
-
-        for (int i = 0; i < numRows; i++) {
-            DatabaseEntry entry;
-            entry.id = PQgetvalue(res, i, 0);
-            entry.ipAddress = PQgetvalue(res, i, 1);
-            entry.masque = PQgetvalue(res, i, 2);
-            entry.ip_hexa = PQgetvalue(res, i, 3);
-            entry.ip_binary = PQgetvalue(res, i, 4);
-
-            char *jsonString = convertToJSON(entry);
-
-            // Réalloue de la mémoire pour augmenter la taille de jsonArray et ajoute jsonString
-            jsonArray = realloc(jsonArray, strlen(jsonArray) + strlen(jsonString) + 2);
-            strcat(jsonArray, jsonString);
-            if (i < numRows - 1) {
-                strcat(jsonArray, ",");
-            }
-            free(jsonString);
-        }
-
-        // Ajoute le crochet fermant à la fin et libère le résultat de la requête
-        strcat(jsonArray, "]");
-        PQclear(res);
-
-
+    res = PQexec(conn, query);
+    
+    if (PQresultStatus(res) == PGRES_COMMAND_OK) {
+        printf("Suppression réussie.\n");
     } else {
-        // La requête a échoué
         printf("Erreur lors de l'exécution de la requête : %s", PQerrorMessage(conn));
-
-        // Libère le résultat de la requête
-        PQclear(res);
-
-        // Retourne une chaîne JSON vide
-
     }
+    
+    PQclear(res);
 }
+
 
 char* Filter(PGconn *conn, char* mask) {
     PGresult *filter;
@@ -382,7 +350,11 @@ char* processClientData(int client_socket, PGconn *conn) {
             break;
         case 3:
             printf("Delete\n");
-            return "[]";
+            printf("ID DELETE IP : %s\n", mask);
+            Delete(conn, mask);
+            char *Update = SelectAllFromTable(conn);
+           
+            return Update;
             break;
         default:
             printf("ID non reconnu\n");
@@ -403,7 +375,7 @@ void handleClientConnections(int server_socket, PGconn *conn, char *initialData)
     int client_socket;
     struct sockaddr_in client_addr;
     socklen_t client_addr_len = sizeof(client_addr);
-    char *data = initialData; // Initialisez data avec les données initiales
+    char *data = initialData; 
 
     while (1) {
         client_socket = accept(server_socket, (struct sockaddr*)&client_addr, &client_addr_len);
@@ -419,7 +391,7 @@ void handleClientConnections(int server_socket, PGconn *conn, char *initialData)
         if (Update != NULL && strlen(Update) > 0) {
             
             data = Update; 
-            printf("data Update: %s\n", data);
+            //printf("data Update: %s\n", data);
         } else {
             printf("Retrying send...\n");
         }

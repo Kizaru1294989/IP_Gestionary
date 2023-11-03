@@ -79,7 +79,7 @@ class App(tk.Tk):
     def delete_ip_event(self):
         selected_item = self.ip_listbox.selection()
         if selected_item:
-            self.delete_by_id = self.ip_listbox.item(selected_item, "values")[0]
+            self.delete_by_id = f"IP: delete, Masque: {self.ip_listbox.item(selected_item, 'values')[0]}"
             print(f"Selected IP's ID to delete: {self.delete_by_id}")
             self.send_to_server_delete()
         else:
