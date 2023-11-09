@@ -29,7 +29,8 @@ $(C_BACKEND_DIR)/ORM.o: $(C_BACKEND_DIR)/Database/PGSQL/ORM.c
 
 run: serveur
 	./serveur &
-	cd $(PYTHON_FRONTEND_DIR) && python3 interface.py
+	 
+	cd $(PYTHON_FRONTEND_DIR) && export DISPLAY=:0.0 && python3 interface.py
 
 clean:
 	rm -f serveur $(C_BACKEND_DIR)/*.o

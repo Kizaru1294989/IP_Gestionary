@@ -2,12 +2,8 @@ import tkinter as tk
 from tkinter import ttk
 from tkinter import *
 import socket
-import time
 import threading
 import re
-import os
-import matplotlib
-import ipaddress as ip
 import customtkinter
 
 
@@ -20,9 +16,7 @@ class App(customtkinter.CTk):
         super().__init__()
         self.title("IP Manager")
         self.geometry(f"{920}x{550}")
-        
-        customtkinter.set_appearance_mode("System")  # Modes: "System" (standard), "Dark", "Light"
-        customtkinter.set_default_color_theme("blue")  # Themes: "blue" (standard), "green", "dark-blue"
+     
         #
         self.delete_button_clicked = False
         self.new_entry_ip_addresses = []
@@ -34,6 +28,7 @@ class App(customtkinter.CTk):
         self.mask = []
 
         self.delete_by_id = []
+        self.fetch_list_ip = []
 
         self.ip_addresses = []
         self.mask_filter = []
@@ -59,7 +54,10 @@ class App(customtkinter.CTk):
         delete_ip_button.grid(row=0, column=6, padx=10, pady=10, sticky="w")
 
         filter_button = customtkinter.CTkButton(self, text="Filtrer", command=self.filter_ip_event)
-        filter_button.grid(row=0, column=14, padx=10, pady=10, sticky="w")
+        filter_button.grid(row=0, column=8, padx=10, pady=10, sticky="w")
+
+        fetch_list_ip_button = customtkinter.CTkButton(self, text="Liste IP" , command=self.fetch_list_ip_event)
+        fetch_list_ip_button.grid(row=1, column=8, padx=10, pady=10, sticky="w")
 
         self.ip_listbox = ttk.Treeview(self, show='headings',column=( "#1" ,"#2", "#3", "#4", "#5"), height=15)
         self.ip_listbox.grid(row=10, column=1, columnspan=6, padx=10, pady=10, sticky="w")
@@ -79,6 +77,22 @@ class App(customtkinter.CTk):
 
         self.update_ip_listbox()
 
+    def fetch_list_ip_event(self):
+       # self.ip_listbox.delete(*self.ip_listbox.get_children())
+        self.fetch_list_ip = f"IP: list, "
+        self.send_to_server_fetch()
+
+    def send_to_server_fetch(self):
+        if not self.fetch_list_ip:
+            messagebox.showerror("Erreur", "La liste d'adresses IP est vide.")
+        else:
+            print("Demande de la list au serveur C")
+            print(self.fetch_list_ip)
+            # Ajouter l'ID au début de la chaîne de données
+            data_with_id = self.fetch_list_ip + ' , ID: 4'
+            threading.Thread(target=self.send_data_to_server, args=(data_with_id,)).start()
+            self.ip_listbox.delete(*self.ip_listbox.get_children())
+
     def delete_ip_event(self):
         selected_item = self.ip_listbox.selection()
         if selected_item:
@@ -87,7 +101,6 @@ class App(customtkinter.CTk):
             self.send_to_server_delete()
         else:
             self.error_label.configure(text="Aucunes IP séléctionnés")
-
 
     def send_to_server_delete(self):
         if not self.delete_by_id:
@@ -99,6 +112,11 @@ class App(customtkinter.CTk):
             data_with_id = self.delete_by_id + ' , ID: 3'
             threading.Thread(target=self.send_data_to_server, args=(data_with_id,)).start()
             self.ip_listbox.delete(*self.ip_listbox.get_children())
+
+
+
+
+
     
     def send_to_server(self):
         if not self.new_entry_ip_addresses:
@@ -109,10 +127,7 @@ class App(customtkinter.CTk):
             data = ', '.join(self.new_entry_ip_addresses)
             data_with_id = data + ' , ID: 1'
             threading.Thread(target=self.send_data_to_server, args=(data_with_id,)).start()
-            
-
-
-
+            self.ip_listbox.delete(*self.ip_listbox.get_children())
 
     def send_to_server_filter(self):
         if not self.new_entry_ip_addresses:
@@ -124,7 +139,6 @@ class App(customtkinter.CTk):
             # Ajouter l'ID au début de la chaîne de données
             data_with_id = data + ' , ID: 2'
             threading.Thread(target=self.send_data_to_server, args=(data_with_id,)).start()
-
             self.ip_listbox.delete(*self.ip_listbox.get_children())
 
 
@@ -153,9 +167,6 @@ class App(customtkinter.CTk):
             self.new_entry_ip_addresses.append(f"IP: {ip_address}, Masque: {mask}")
             self.send_to_server_filter()
 
-
-
-
     def update_data_from_server(self, new_data):
         self.id.clear()
         self.ip_addresses.clear()
@@ -181,14 +192,21 @@ class App(customtkinter.CTk):
             server_address = ('localhost', 12345)
             client_socket.connect(server_address)
             data = client_socket.recv(4096).decode()
-            #
-            # print("data" + data)
-            if(data == "IP Format Invalide!"):
+
+            #print("data" + data)
+     
+
+
+            if data == "IP Format Invalide!":
                 self.error_label.configure(text=data)
             else:
-                
                 formatted_data = data.strip("[]").replace('"', '').split("}, {")
-                self.update_data_from_server(formatted_data)  # Mettez à jour les données et l'affichage de la liste
+                #print(data)
+                self.update_data_from_server(formatted_data)
+            #
+
+
+                    
 
         except Exception as e:
             print(f"Erreur lors de la réception de données du serveur C : {e}")

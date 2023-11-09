@@ -46,38 +46,34 @@ char* processClientData(int client_socket, PGconn *conn) {
         printf("id: %d\n", id);
         printf("Adresse IP: %s\n", ip);
         printf("Masque: %s\n", mask);
-
     switch (id) {
         case 1:
-        if(validate_ip(ip)){
+            if(validate_ip(ip)){
+            printf("Insertion\n");
+            char *hexadecimal = convert_to_hexadecimal(ip);
+            char *binaire = convert_to_binary(ip);
+            char insert_query[200];
+            printf("IP en hexadécimal : %s\n", hexadecimal);
+            printf("IP en binaire : %s\n", binaire);
+            snprintf(insert_query, sizeof(insert_query), "INSERT INTO ip_address (decimal,mask,hexadecimal,binaire) VALUES ('%s','%s','%s','%s')", ip, mask, hexadecimal,binaire);
+            printf("Tentative d'insertion : %s\n", insert_query);
+            PGresult *insert = PQexec(conn, insert_query);
+            if (PQresultStatus(insert) == PGRES_COMMAND_OK) {
+                printf("Insertion réussie\n");
+                char *Update = SelectAllFromTable(conn);
+                return Update;
+            } else  {
+                printf("Erreur lors de l'insertion : %s\n", PQresultErrorMessage(insert));
+                // printf("IP Format Invalide ! : %s\n" ,ip);
+                // char* errorMessage = "IP Format Invalide!";
+                // return errorMessage;
+            }
 
-        printf("Insertion\n");
-        char *hexadecimal = convert_to_hexadecimal(ip);
-        char *binaire = convert_to_binary(ip);
-        char insert_query[200];
-        printf("IP en hexadécimal : %s\n", hexadecimal);
-        printf("IP en binaire : %s\n", binaire);
-
-        snprintf(insert_query, sizeof(insert_query), "INSERT INTO ip_address (decimal,mask,hexadecimal,binaire) VALUES ('%s','%s','%s','%s')", ip, mask, hexadecimal,binaire);
-        printf("Tentative d'insertion : %s\n", insert_query);
-
-        PGresult *insert = PQexec(conn, insert_query);
-        if (PQresultStatus(insert) == PGRES_COMMAND_OK) {
-            printf("Insertion réussie\n");
-            char *Update = SelectAllFromTable(conn);
-            return Update;
-
-        } else {
-            printf("Erreur lors de l'insertion : %s\n", PQresultErrorMessage(insert));
-            return "[]";
-        }
-
-        } else {
+            } else {
             printf("IP Format Invalide ! : %s\n" ,ip);
             char* errorMessage = "IP Format Invalide!";
             return errorMessage;
-        }
-                 
+            }           
             break;
         case 2:
             printf("Filtrage\n");
@@ -86,7 +82,7 @@ char* processClientData(int client_socket, PGconn *conn) {
             printf("Result Filter : %s\n", FilterResult);
             return FilterResult;
             free(FilterResult);
-        }
+            }
             else {
                 printf("Error occurred while filtering data.\n");
             }
@@ -98,18 +94,21 @@ char* processClientData(int client_socket, PGconn *conn) {
             char *Update = SelectAllFromTable(conn);
             return Update;
             break;
+        case 4:
+            printf("LIST IP \n");
+            char *List = SelectAllFromTable(conn);
+            return List;
+            break;
         default:
             printf("ID non reconnu\n");
             return "[]";
             break;
     }
-
     } else {
         printf("Format de données invalide : %s\n", buffer);
         return "[]";
     }
         }
-
     }
 }
 
@@ -144,7 +143,7 @@ int main() {
     server_socket = createServerSocket(12345);
     printf("Serveur en attente de connexions...\n");
     char *jsonString = SelectAllFromTable(conn);
-    // printf("PGSQL TABLE: %s\n", jsonString);
+    printf("PGSQL TABLE: %s\n", jsonString);
     handleClientConnections(server_socket, conn,jsonString);
     // PQfinish(conn);
     // close(server_socket);

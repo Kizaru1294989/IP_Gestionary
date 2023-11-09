@@ -13,3 +13,5 @@ Terminal-2 :
 II - Makefile
 
 - Run "make"
+- make run
+- make clean ( clear tout les executables)
