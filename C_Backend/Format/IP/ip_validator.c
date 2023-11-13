@@ -11,42 +11,24 @@
 bool validate_ip(char *ip) {
     char copieIP[16];
     strcpy(copieIP, ip);
-    int i, num, dots = 0;
-    char *ptr;
-    if (copieIP == NULL) {
-        return false;
-    }
-    ptr = strtok(copieIP, ".");
-    if (ptr == NULL) {
-        return false;
-    }
-    while (ptr) {
-        if (!validate_number(ptr)) {
-            return false;
-        }
-        num = atoi(ptr);
-        if (num >= 0 && num <= 255) {
-            ptr = strtok(NULL, ".");
-            if (ptr != NULL) {
-                dots++;
-            } else {
-                return false;
+    int octet, num;
+    int compteur = 0;
+    char *token = strtok(copieIP, ".");
+    while (token != NULL) {
+        for (int i = 0; i < strlen(token); i++) {
+            if (!isdigit(token[i])) {
+                return false; 
             }
+        }
+        num = strtol(token, NULL, 10);
+
+        if (num >= 0 && num <= 255) {
+            token = strtok(NULL, ".");
+            compteur++;
         } else {
-            return false;
+            return false; 
         }
     }
-    if (dots != 3) {
-        return false;
-    }
-    return true;
+    return compteur == 4;
 }
-bool validate_number(char *str) {
-   while (*str) {
-      if(!isdigit(*str)){ 
-         return false;
-      }
-      str++; 
-   }
-   return true;
-}
+

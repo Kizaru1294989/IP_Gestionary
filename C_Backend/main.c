@@ -63,10 +63,11 @@ char* processClientData(int client_socket, PGconn *conn) {
                 char *Update = SelectAllFromTable(conn);
                 return Update;
             } else  {
-                printf("Erreur lors de l'insertion : %s\n", PQresultErrorMessage(insert));
-                // printf("IP Format Invalide ! : %s\n" ,ip);
-                // char* errorMessage = "IP Format Invalide!";
-                // return errorMessage;
+                printf("Insertion Failed\n");
+                printf("IP Format Invalide ! : %s\n" ,ip);
+                char* errorMessageInsertion = "IP Format Invalide!";
+                return errorMessageInsertion;
+              
             }
 
             } else {
