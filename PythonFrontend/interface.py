@@ -79,6 +79,7 @@ class App(customtkinter.CTk):
 
     def fetch_list_ip_event(self):
        # self.ip_listbox.delete(*self.ip_listbox.get_children())
+        self.error_label.configure(text="")
         self.fetch_list_ip = f"IP: list, "
         self.send_to_server_fetch()
 
